@@ -40,6 +40,19 @@ public class GameonModel extends GLModel{
 	private boolean mVisible = true;
 	private boolean mActive = true;
 
+
+	private static float mStaticBoundsPlane[] =  { 
+		-0.5f,-0.5f,0.0f,1.0f,
+		0.5f,-0.5f,0.0f,1.0f,
+		-0.5f,0.5f,0.0f,1.0f,
+		 0.5f,0.5f,0.0f,1.0f };
+	
+	private static float mStaticBounds[] =  { 
+		0.0f,0.0f,0.0f,1.0f,
+		0.0f,0.0f,0.0f,1.0f,
+		0.0f,0.0f,0.0f,1.0f,
+		0.0f,0.0f,0.0f,1.0f };	
+	
 	public GameonModel(String name, GameonApp app) {
 		super(name , app);
 		mApp = app;
@@ -763,4 +776,129 @@ public class GameonModel extends GLModel{
 	{
 		mActive = active;
 	}
+	
+    public void createModelFromData(float[] inputdata, float mat[] , float uvb[])
+    {
+    	float umid = (uvb[1] + uvb[0]) /2;
+    	float vmid = (uvb[3] + uvb[2]) /2;
+    	float ratiou = uvb[1] - uvb[0];
+    	float ratiov = uvb[3] - uvb[2];
+    	
+    	float outvec[] = { 0 ,0,0,1};
+    	float cols[] = {0,0,0,0};
+    	float tu,tv;
+    	
+    	// model info - vertex offset?
+    	int len = inputdata.length;
+    	//  v   c   uv
+    	// (3 + 4 + 2) * 3
+    	int off;
+		GLShape shape = new GLShape(this);
+    	
+    	for (int a=0; a< len; a+= 27 ) 
+    	{
+    		off = a;
+    		
+    		GMath.matrixVecMultiply2(mat, inputdata, off , outvec ,0);
+    		cols[0] = inputdata[off+3];
+    		cols[1] = inputdata[off+4];
+    		cols[2] = inputdata[off+5];
+    		cols[4] = inputdata[off+6];
+        	tu = inputdata[off+7] * ratiou + umid;
+        	tv  = inputdata[off+8] * ratiou + umid;
+    		GLVertex v1 = shape.addVertexColor(outvec[0], outvec[1], outvec[2] , tu, tv, cols);
+
+    		off += 9;
+    		GMath.matrixVecMultiply2(mat, inputdata, off , outvec ,0);
+    		cols[0] = inputdata[off+3];
+    		cols[1] = inputdata[off+4];
+    		cols[2] = inputdata[off+5];
+    		cols[4] = inputdata[off+6];
+        	tu = inputdata[off+7] * ratiou + umid;
+        	tv  = inputdata[off+8] * ratiou + umid;
+    		GLVertex v2 = shape.addVertexColor(outvec[0], outvec[1], outvec[2] , tu, tv, cols);
+    		
+    		off += 9;
+    		GMath.matrixVecMultiply2(mat, inputdata, off , outvec ,0);
+    		cols[0] = inputdata[off+3];
+    		cols[1] = inputdata[off+4];
+    		cols[2] = inputdata[off+5];
+    		cols[4] = inputdata[off+6];
+        	tu = inputdata[off+7] * ratiou + umid;
+        	tv  = inputdata[off+8] * ratiou + umid;
+    		GLVertex v3 = shape.addVertexColor(outvec[0], outvec[1], outvec[2] , tu, tv, cols);
+    		
+    		shape.addFace( new GLFace(v1,v2,v3));
+
+    	}
+
+		addShape(shape);
+		mTextureID = mApp.textures().get(TextureFactory.Type.DEFAULT);
+    }
+
+    
+	public void addPlane(float[] mat, int[] cols, float[] uvb) {
+		/*
+    	float umid = (uvb[2] + uvb[0]) /2;
+    	float vmid = (uvb[3] + uvb[1]) /2;
+    	float ratiou = uvb[2] - uvb[0];
+    	float ratiov = uvb[3] - uvb[1];
+*/
+    	float ulow = uvb[0];
+    	float uhigh =uvb[2];
+    	float vlow = uvb[1];
+    	float vhigh =uvb[3];
+    	
+    	GLShape shape = new GLShape(this);
+    	GMath.matrixVecMultiply2(mat, mStaticBoundsPlane, 0 , mStaticBounds,0);
+    	GMath.matrixVecMultiply2(mat, mStaticBoundsPlane, 4 , mStaticBounds,4);
+    	GMath.matrixVecMultiply2(mat, mStaticBoundsPlane, 8 , mStaticBounds,8);
+    	GMath.matrixVecMultiply2(mat, mStaticBoundsPlane, 12 , mStaticBounds,12);
+    	
+    	int count = 0;
+       	GLVertex leftBottomFront = shape.addVertexColorInt(mStaticBounds[0], mStaticBounds[1], mStaticBounds[2], ulow , vhigh, cols[count]);
+       	count++; if (count >= cols.length) count = 0;
+        GLVertex rightBottomFront = shape.addVertexColorInt(mStaticBounds[4], mStaticBounds[5], mStaticBounds[6], uhigh , vhigh, cols[count]);
+        count++; if (count >= cols.length) count = 0;
+    	GLVertex leftTopFront = shape.addVertexColorInt(mStaticBounds[8], mStaticBounds[9], mStaticBounds[10] , ulow , vlow, cols[count]);
+    	count++; if (count >= cols.length) count = 0;
+        GLVertex rightTopFront = shape.addVertexColorInt(mStaticBounds[12], mStaticBounds[13], mStaticBounds[14] , uhigh , vlow, cols[count]);
+        count++; if (count >= cols.length) count = 0;
+        // front
+        shape.addFace(new GLFace(leftBottomFront, rightTopFront , leftTopFront));
+        shape.addFace(new GLFace(leftBottomFront, rightBottomFront , rightTopFront ));
+
+        addShape(shape);		
+		
+	}
+	public GameonModel copyOfModel() {
+		GameonModel model = new GameonModel(mName, mApp);
+		model.mEnabled = this.mEnabled;
+		model.mForceHalfTexturing = false;
+		model.mForcedOwner = 0;
+		model.mShapeList = this.mShapeList;	
+		model.mVertexList = this.mVertexList;
+		model.mVertexOffset = this.mVertexOffset;
+	    model.mTextureID = this.mTextureID;
+	    model.mIndexCount = this.mIndexCount;
+	    
+	    model.mForcedOwner = this.mForcedOwner;
+	    model.mTextureW = this.mTextureW;
+	    model.mTextureH = this.mTextureH;
+		return model;
+	}
+	
+	public GameonModelRef getRef(int count) {
+        if (count < mRefs.size()) {
+            return mRefs.elementAt(count);
+        } else {
+    		while (count >= mRefs.size())
+    		{
+                GameonModelRef ref = new GameonModelRef(this);
+                mRefs.add(ref);
+    		}
+    		return mRefs.elementAt(count);
+        }
+	}
+	
 }

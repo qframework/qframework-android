@@ -25,7 +25,8 @@ var testnames = [ "Coordinate system",
                   "Screen color",
                   "Lists",
                   "Anims",
-                  "Textures"];
+                  "Textures",
+                  "Models"];
 
 var testlinks = ["examples/coordinates.js",
                  "examples/worldhudsystem.js",
@@ -41,23 +42,18 @@ var testlinks = ["examples/coordinates.js",
                  "examples/animscreen.js",
                  "examples/lists.js",
                  "examples/anims.js",
-                 "examples/textures.js"];
+                 "examples/textures.js",
+                 "examples/models.js"];
 
 function main_loadresources()
 {
-	var suffix = "";
-	if (Q.layout.canvasw <= 480)
-	{
-		suffix = "s";
-	}
-
 	var text = new Texture();
 	text.name = 'back';
-	text.file = 'textures/back'+suffix+'.png';
+	text.file = 'textures/back.png';
 	
 	var text2 = new Texture();
 	text2.name = 'icons';
-	text2.file = 'textures/images'+suffix+'.png';
+	text2.file = 'textures/images.png';
 
 	var text3 = new Texture();
 	text3.name = 'qtext';
@@ -113,7 +109,6 @@ function main_load()
     var h = y2-y1;
     
 	// add areas
-    console.log(" " + x1 + " " + x2 + " ");
 	var areas = new Array();
 
 	var areaBack = new LayoutArea();
