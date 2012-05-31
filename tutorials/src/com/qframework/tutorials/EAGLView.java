@@ -22,7 +22,7 @@ public class EAGLView extends EAGLViewInterface  {
 	boolean doOnce1 = false;
 	boolean doOnce2 = false;
 	private Handler mMessageHandler;
-	
+	long mPressStart = 0;
 	public EAGLView(QTutorialsActivity context, String appname) {
 		super(context);
 		initWorld(context, appname);
@@ -53,10 +53,12 @@ public class EAGLView extends EAGLViewInterface  {
 	        float y = e.getY();
 	        switch (e.getAction()) {
 	        case MotionEvent.ACTION_DOWN:
+	        	mPressStart = System.currentTimeMillis();
+	        	mApp.touchStart((int)x, (int)y);
 	        	mApp.onFocusProbe((int)x, (int)y);        	
 	        break;
 	        case MotionEvent.ACTION_UP:
-	        	mApp.mouseClicked((int)x, (int)y);
+	        	mApp.touchEnd((int)x, (int)y , System.currentTimeMillis() - mPressStart);
 	        break;
 	        case MotionEvent.ACTION_MOVE:
 	        	mApp.mouseDragged((int)x, (int)y  , false);
