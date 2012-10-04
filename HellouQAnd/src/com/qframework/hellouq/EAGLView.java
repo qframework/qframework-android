@@ -58,7 +58,7 @@ public class EAGLView extends EAGLViewInterface  {
 			mApp.onFocusProbe((int)x, (int)y);        	
 			break;
 		case MotionEvent.ACTION_UP:
-			mApp.touchEnd((int)x, (int)y , System.currentTimeMillis() - mPressStart);
+			mApp.touchEnd((int)x, (int)y , System.currentTimeMillis() - mPressStart , true);
 			break;
 		case MotionEvent.ACTION_MOVE:
 			mApp.mouseDragged((int)x, (int)y  , false);

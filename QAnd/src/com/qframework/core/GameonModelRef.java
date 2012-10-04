@@ -59,6 +59,7 @@ public class GameonModelRef {
     private AnimData	mAnimData;
     
 	private BodyData mPsyData;
+	protected String mRefAlias;
 
     public GameonModelRef(GameonModel parent, int loc) {
     	mParent = parent;
@@ -323,13 +324,18 @@ public class GameonModelRef {
 		}else
 		{
 			if (mParent != null)mParent.remVisibleRef(this);
+			cancelAnimation();
+			
+		}
+	}
+	
+	public void cancelAnimation()
+	{
 			if (this.mAnimating && this.mAnimData != null)
 			{
 				this.mAnimData.cancelAnimation(this);
 				mAnimating = false;
 			}
-			
-		}
 	}
 	
 	public boolean getVisible()
@@ -421,5 +427,46 @@ public class GameonModelRef {
 		mPsyData = bodydata;
 	}
 	
+	public void copyData(GameonModelRef source)
+	{
+		for (int a=0; a< 3; a++)
+		{
+			mAreaPosition[a] = source.mAreaPosition[a];
+			mAreaRotation[a] = source.mAreaRotation[a];
+			mPosition[a] = source.mPosition[a];
+			mRotation[a] = source.mRotation[a];
+			mScale[a] = source.mScale[a];
+			mScaleAdd[a] = source.mScaleAdd[a];		
+		}
+		
+		mOwner = source.mOwner;
+		mOwnerMax= source.mOwnerMax;
+		mTransformOwner = source.mTransformOwner;
+		
+	}
+	
+	public void resizeMatrices(int size)
+	{
+		mAreaPosition = new float[4];
+		mAreaRotation = new float[4];
+		mPosition = new float[4];
+		mRotation = new float[4];
+		mScale = new float[4];
+		mScaleAdd = new float[4];
+		
+	}
+
+	public float distToCenter(float[] loc) {
+		float dist = (float)Math.sqrt((double)( 
+				(loc[0] - mMatrix[12])*
+				(loc[0] - mMatrix[12]) +
+				(loc[1] - mMatrix[13])*
+				(loc[1] - mMatrix[13]))+
+				(loc[2] - mMatrix[14])*
+				(loc[2] - mMatrix[14]));
+		return dist;
+
+
+	}
 }
 

@@ -31,12 +31,6 @@ import org.json.JSONObject;
 
 public class ObjectsFactory {
 
-	private class RefId
-	{
-		String name;
-		int id;
-	}
-	
 	private HashMap<String, LayoutItem>		mItems = new HashMap<String, LayoutItem>();
 	private GameonApp 	mApp;
 	
@@ -112,8 +106,8 @@ public class ObjectsFactory {
 			
 		}
 	}	
-	public void place(String name, String data) {
-		RefId refid = this.refId(name);
+	public void place(String name, String data, String state) {
+		GameonModel.RefId refid = this.refId(name);
 		
 		LayoutItem item = mItems.get(refid.name);
 		if (item == null)
@@ -125,13 +119,23 @@ public class ObjectsFactory {
 		float[] coords = new float[3];
 		ServerkoParse.parseFloatArray(coords, data);
 
-		GameonModelRef ref = model.getRef(refid.id , 0);
+		GameonModelRef ref = model.getRefById(refid , 0);
 		ref.setPosition(coords);
 		ref.set();
 
+		if (state != null)
+		{
+			boolean visible = false;
+			if (state.equals("visible"))
+			{
+				visible = true;
+			}
+			ref.setVisible(visible);			
+		}
+
 	}
 	public void scale(String name, String data) {
-		RefId refid = this.refId(name);
+		GameonModel.RefId refid = this.refId(name);
 		
 		LayoutItem item = mItems.get(refid.name);
 		if (item == null)
@@ -141,7 +145,7 @@ public class ObjectsFactory {
 		GameonModel model = item.mModel;
 		float[] scale = new float[3];
 		ServerkoParse.parseFloatArray(scale, data);
-		GameonModelRef ref = model.getRef(refid.id, 0);
+		GameonModelRef ref = model.getRefById(refid, 0);
 		ref.setScale(scale);
 		ref.set();
 	
@@ -149,7 +153,7 @@ public class ObjectsFactory {
 	
 	public void rotate(String name, String data) {
 		
-		RefId refid = this.refId(name);
+		GameonModel.RefId refid = this.refId(name);
 		
 		LayoutItem item = mItems.get(refid.name);
 		if (item == null)
@@ -167,14 +171,14 @@ public class ObjectsFactory {
 
 	
 	public void texture(String name, String data, String submodel) {
-		RefId refid = this.refId(name);
+		GameonModel.RefId refid = this.refId(name);
 		LayoutItem item = mItems.get(refid.name);
 		if (item == null)
 		{
 			return;
 		}
 		GameonModel model = item.mModel;
-		GameonModelRef r = model.ref(refid.id);
+		GameonModelRef r = model.getRefById(refid , 0);
 		
 		if (data != null && data.length() > 0)
 		{
@@ -193,7 +197,7 @@ public class ObjectsFactory {
 	
 	//TODO mutliple references with name.refid , default 0!
 	public void state(String name, String data) {
-		RefId refid = this.refId(name);
+		GameonModel.RefId refid = this.refId(name);
 		
 		LayoutItem item = mItems.get(refid.name);
 		if (item == null)
@@ -201,7 +205,7 @@ public class ObjectsFactory {
 			return;
 		}
 		GameonModel model = item.mModel;
-
+		GameonModelRef ref = model.getRefById(refid , 0);
 		boolean visible = false;
 		if (data.equals("visible"))
 		{
@@ -210,10 +214,10 @@ public class ObjectsFactory {
 		
 		if (model.ref(refid.id) == null)
 		{
-			this.place(name, "0,0,0");
+			this.place(name, "0,0,0", null);
 		}
 		
-		model.ref(refid.id).setVisible(visible);
+		ref.setVisible(visible);
 		//model.setVisible(visible);
 	}
 	
@@ -260,7 +264,7 @@ public class ObjectsFactory {
 			if (objData.has("location"))
 			{
 				String data = objData.getString("location");
-				place(name, data);
+				place(name, data, null);
 			}
 			if (objData.has("bounds"))
 			{
@@ -277,6 +281,21 @@ public class ObjectsFactory {
 				String data = objData.getString("state");
 				state(name, data);
 			}			
+			if (objData.has("rotate"))
+			{
+				String data = objData.getString("rotate");
+				rotate(name, data);
+			}			
+			if (objData.has("iter"))
+			{
+				String data = objData.getString("iter");
+				setIter(name, data);
+			}
+			if (objData.has("onclick"))
+			{
+				String data = objData.getString("onclick");
+				setOnClick(name, data);
+			}		
     	}
     	catch (JSONException e) {
     		e.printStackTrace();
@@ -284,17 +303,25 @@ public class ObjectsFactory {
     }
     
 
-    private RefId refId(String name)
-    {
-		RefId refdata = new RefId();
     	
-    	int i = name.indexOf('.'); 
-    	if ( i > 0)
+	private GameonModel.RefId refId(String name)
+    {
+		GameonModel.RefId refdata = new GameonModel.RefId();
+    	StringTokenizer tok = new StringTokenizer(name,".");
+    	int count = tok.countTokens();
+    	if ( count == 2)
     	{
     		
-    		refdata.name = name.substring(0, i);
-    		String refid = name.substring(i+1, name.length());
+    		refdata.name = tok.nextToken();
+    		String refid = tok.nextToken();
     		refdata.id = Integer.parseInt(refid);
+    	}else if (count == 3)
+		{
+    		refdata.name = tok.nextToken();
+    		tok.nextToken();
+    		// we only support iter
+    		refdata.alias = tok.nextToken();
+    		refdata.id = -1;
     	}else
     	{
     		refdata.name = name;
@@ -306,14 +333,42 @@ public class ObjectsFactory {
 
 	GameonModelRef getRef(String name)
 	{
-		RefId refid = this.refId(name);
+		GameonModel.RefId refid = this.refId(name);
 		LayoutItem item = mItems.get(refid.name);
 		if (item == null)
 		{
 			return null;
 		}
 		GameonModel model = item.mModel;
-		GameonModelRef ref = model.getRef(refid.id,0);
+		GameonModelRef ref = model.getRefById(refid,0);
 		return ref;
 	}    
+	
+
+    private void setIter(String name, String data) 
+    {
+		GameonModel.RefId refid = this.refId(name);
+		LayoutItem item = mItems.get(refid.name);
+		if (item == null)
+		{
+			return;
+		}
+		GameonModel model = item.mModel;
+		int num = Integer.parseInt(data);
+		model.setupIter(num);
+	}
+
+    private void setOnClick(String name, String data) 
+    {
+		GameonModel.RefId refid = this.refId(name);
+		LayoutItem item = mItems.get(refid.name);
+		if (item == null)
+		{
+			return;
+		}
+		GameonModel model = item.mModel;
+		model.mOnClick = data;
+	}
+
+
 }

@@ -40,11 +40,11 @@ public class GameonWorldView {
     }
 
     
-    public void onDrawFrame(GL10 gl) {
+    public void onDrawFrame(GL10 gl, long delay) {
     	
 	    if (mLockedDraw)return;
 	    gl.glClear(GL10.GL_COLOR_BUFFER_BIT);// | GL2.GL_DEPTH_BUFFER_BIT);
-        mWorld.draw(gl);
+        mWorld.draw(gl , delay);
     }
 
 

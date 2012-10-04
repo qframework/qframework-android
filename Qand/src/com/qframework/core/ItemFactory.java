@@ -22,6 +22,7 @@ package com.qframework.core;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
+import java.util.Vector;
 
 import javax.microedition.khronos.opengles.GL10;
 
@@ -152,7 +153,7 @@ public class ItemFactory {
 			
 		}		
 	
-		GameonModel model = new GameonModel(template , mApp);
+		GameonModel model = new GameonModel(template , mApp, null);
 		if (template.equals("cylinder"))
 		{
 			model.createModel(GameonModelData.Type.CYLINDER, textid, color, grid);
@@ -249,14 +250,13 @@ public class ItemFactory {
 	
 	public GameonModel createFromType(GameonModelData.Type template, GLColor color, int texture, float[] grid) 
 	{
-		GameonModel model = new GameonModel("template" , mApp);
+		GameonModel model = new GameonModel("template" , mApp, null);
 		addModelFromType(model, template, color, texture, grid);
 		return model;
 	}
 
 	public GameonModel addModelFromType(GameonModel model, GameonModelData.Type template, GLColor color, int texture, float[] grid) 
 	{	
-
 		if (template == GameonModelData.Type.SPHERE)
 		{
 			model.createModel(GameonModelData.Type.SPHERE, mApp.textures().mTextureDefault, color, grid);
@@ -351,7 +351,7 @@ public class ItemFactory {
 
 	public void newEmpty(String name) 
 	{
-		GameonModel model = new GameonModel(name , mApp);
+		GameonModel model = new GameonModel(name , mApp,null);
         model.mIsModel = true;
 		if (model != null)
 		{
@@ -417,6 +417,15 @@ public class ItemFactory {
 		{
 			model.addPlane(mat, cols, uvb);
 		}
+		else if (type.equals("cylinder"))
+		{
+			model.createModelFromData2(GameonModelData.modelCyl, mat, uvb, cols);
+		}
+		else if (type.equals("cube"))
+		{
+			model.createModelFromData2(GameonModelData.modelCube, mat, uvb, cols);
+		}		
+			
 		/*
 		else if (type.equals("cube"))
 		{
@@ -478,4 +487,85 @@ public class ItemFactory {
 		model.createModelFromData(inputdata, mat, uvb);
 	}
     
+	public void createModelFromFile(GL10 gl, String modelname, String fname)
+	{
+		GameonModel model = mModels.get(modelname);
+		if (model != null) {
+			return;
+		}
+		
+		model = new GameonModel(modelname , mApp,null);
+		
+        String location = "";
+        location += fname;
+        Vector<float[]> vertices = new Vector<float[]>();
+        Vector<float[]> textvertices = new Vector<float[]>();
+
+        String folder = "";
+        if (fname.indexOf("/") != -1)
+    	{
+        	folder = fname.substring(0, fname.indexOf("/")+1);
+    	}
+        String objstr = mApp.getStringFromFile(location);
+        
+		
+		StringTokenizer tok = new StringTokenizer(objstr  , "\n");
+		while (tok.hasMoreTokens())
+		{
+			String line = tok.nextToken();
+			line = line.replace("\r", "");
+			if (line.startsWith("#"))
+			{
+				continue;
+			}
+			if (line.startsWith("v "))
+			{
+				parseVertices(vertices , line.substring(2));
+			}else
+			if (line.startsWith("vt "))
+			{
+				parseTextureVertices(textvertices,line.substring(3));
+			}else
+			if (line.startsWith("vn "))
+			{
+				continue;
+			}else					
+			if (line.startsWith("vp "))
+			{
+				continue;
+			}else
+			if (line.startsWith("f "))
+			{
+				model.addShapeFromString(vertices, textvertices, line.substring(2));
+			}else
+			if (line.startsWith("mtllib "))
+			{
+				mApp.textures().loadMaterial(gl, folder, line.substring(7));
+			}else
+			if (line.startsWith("usemtl "))
+			{
+				model.useMaterial(line.substring(7));
+			}
+		}
+		// TODO multiple material textures
+		// TODO normals and much more
+		model.normalize();
+		model.invert(false,true,false);
+		mModels.put( modelname , model);
+	
+	}
+	private void parseVertices(Vector<float[]> vertices, String data) 
+	{
+		float[] array = new float[4];
+		ServerkoParse.parseFloatArray2(array, data);
+		vertices.add(array);
+	}
+	
+	private void parseTextureVertices(Vector<float[]> vertices, String data) 
+	{
+		float[] array = new float[2];
+		ServerkoParse.parseFloatArray2(array, data);
+		vertices.add(array);
+	}
+	
 }

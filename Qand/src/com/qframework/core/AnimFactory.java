@@ -71,6 +71,10 @@ public class AnimFactory {
     private void buildObjectAdata(GameonModelRef ref, AnimType atype, int delay, int repeat, String data, String callback)
     {
     	AnimData adata = ref.getAnimData(mApp);
+    	if (ref.animating())
+    	{
+    		return;
+    	}
     	// fill anim data!
     	
     	// for object destination is stored in data
@@ -281,10 +285,19 @@ public class AnimFactory {
     
     public void animRef(String animid, GameonModelRef start, GameonModelRef end,String delaydata)
     {
+    	if (animid.equals("none"))
+    	{
+    		end.cancelAnimation();
+    		return;
+    	}
     	if (mAnimations.containsKey(animid) == false)
     	{
     		return;
     	}
+    	if (end.animating())
+    	{
+    		return;
+    	}    	
     	/*
     	if (end.animating())
     	{
@@ -309,17 +322,20 @@ public class AnimFactory {
 	public void createAnim(GameonModelRef start,
 			GameonModelRef end, GameonModelRef def, 
 			int delay , int steps, LayoutItem owner, 
-			int repeat, boolean hide) {
-/*
+			int repeat, boolean hide, boolean savebackup) {
+
     	if (def.animating())
 		{
 			return;
-    	}	*/	
+    	}		
 		AnimData adata = def.getAnimData(mApp);
 		AnimType atype = mAnimations.get("transform");
 		adata.setDelay(delay, repeat);
 		adata.setup2(atype,start,end);
+		if (savebackup)
+		{
 		adata.saveBackup(def , hide);
+		}
 		def.activateAnim();
 
 	}	

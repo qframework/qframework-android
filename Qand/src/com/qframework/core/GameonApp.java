@@ -19,6 +19,13 @@
 
 package com.qframework.core;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.Random;
 import java.util.StringTokenizer;
 import java.util.Vector;
@@ -87,6 +94,7 @@ public class GameonApp{
 	private String 	mOnTouchCallback = null;
 	private String 	mOnTouchEndCallback = null;
 	private String 	mOnTouchStartCallback = null;
+        private boolean mRenderThisFrame = false;
 	private String mStartScript;
 	private boolean mFirstRun = true;
 	public Context context()
@@ -199,7 +207,10 @@ public class GameonApp{
 		long delay = System.currentTimeMillis() - mLastClickTime;
 
 		AreaIndexPair field = mDataGrid.onClickNearest(x, y);
-
+    	        if (field == null)
+    	        {
+    	         	field = mWorld.onTouchModel(x,y,true);
+    	        }
 		if (field != null && field.mOnclick != null) {
 			// send data
 			String datastr = field.mOnclick;
@@ -211,7 +222,13 @@ public class GameonApp{
 				}else
 				{
 					String cmd  = datastr.substring(3);
+    				if (field.mAlias == null)
+    				{
 					cmd += "('" + field.mArea + "',"+ field.mIndex;
+    				}else
+    				{
+    					cmd += "('" + field.mArea + "',"+ field.mIndex+",'" + field.mAlias + "'" ;
+    				}
 					cmd += "," + delay + ",[" + field.mLoc[0] + "," + field.mLoc[1] + "," + field.mLoc[2] + "]";
 					cmd += ","+mLastDist;
 					cmd += ");" ;
@@ -331,11 +348,16 @@ public class GameonApp{
 		fireTouchEvent(1,(float)x, (float)y, 0);//rayVec , rayVecHud);
 	}
 
-	public void touchEnd(int x, int y, long pressdelay) {
+    public void touchEnd(int x, int y, long pressdelay, boolean dotouch) {
 		if (!mTouchEnabled)
 			return;    	
+		if (dotouch)
+		{
 		fireTouchEvent(2,(float)x, (float)y, pressdelay);//rayVec , rayVecHud);
+		}
 		onClick((float)x, (float)y );//rayVec , rayVecHud);
+		mWorld.resetDomainPan();
+		
 	}
 
 	public void drawFrame(GL10 gl) {
@@ -373,7 +395,7 @@ public class GameonApp{
 
 		}else
 		{
-			mView.onDrawFrame(gl);
+			mView.onDrawFrame(gl, mFrameDeltaTime);
 		}
 
 		if (!mCameraSet)
@@ -420,11 +442,11 @@ public class GameonApp{
 		mScript.send(data);
 	}
 
-	public void mouseDragged(int x, int y, boolean notimecheck) {
+	public boolean  mouseDragged(int x, int y, boolean notimecheck) {
 		// 
 		System.out.println( " mouse drag " + x + y + notimecheck);
 		if (!mTouchEnabled)
-			return;
+			return false;
 
 		if (this.mFrameDeltaTime == 0)
 			mLastDragTime += 100;
@@ -432,7 +454,7 @@ public class GameonApp{
 			mLastDragTime += this.mFrameDeltaTime;
 		if (!notimecheck && mLastDragTime < 100)
 		{
-			return;
+			return false;
 		}
 		fireTouchEvent(0,(float)x, (float)y, 0);
 
@@ -441,7 +463,10 @@ public class GameonApp{
 
 
 		AreaIndexPair field = mDataGrid.onDragNearest((float)x, (float)y);
-		System.out.println( " mouse find " + field);
+		if (field == null)
+		{
+			field = mWorld.onTouchModel(x,y,false);
+		}
 		if (field != null && mFocused != null)
 		{
 			if (field.mArea.equals( mFocused.mArea) )
@@ -451,7 +476,7 @@ public class GameonApp{
 					mLastDrag[0] = field.mLoc[0];
 					mLastDrag[1] = field.mLoc[1];
 					mLastDrag[2] = field.mLoc[2];
-					return;
+    				return true;
 				}else
 				{
 					float delta0 = field.mLoc[0]-mLastDrag[0];
@@ -478,7 +503,7 @@ public class GameonApp{
 					field.mIndex == mFocused.mIndex)
 			{
 				// moving around focused item
-				return;
+    			return true;
 			}else
 			{
 				onFocusLost(mFocused);
@@ -496,7 +521,23 @@ public class GameonApp{
 			onFocusGain(field);
 		}
 
+		if (field == null)
+		{
+			if (mWorld.panDomain((float)x, (float)y))
+			{
+				mRenderThisFrame = true;
+			}
+		}
+
+		
 		mLastDrag[0] = 1e07f;		
+    	if (field != null)
+    	{
+    		return true;
+    	}else
+    	{
+    		return false;
+    	}
 	}
 
 
@@ -514,7 +555,13 @@ public class GameonApp{
 			}else
 			{			
 				String cmd  = datastr.substring(3);
+				if (field.mAlias == null)
+				{
+					cmd += "('" + field.mArea + "',"+ field.mIndex+ ");" ;
+				}else
+				{				
 				cmd += "('" + field.mArea + "',"+ field.mIndex + ");" ;
+				}
 				mScript.execScript(cmd);
 			}
 
@@ -542,7 +589,13 @@ public class GameonApp{
 			}else
 			{			
 				String cmd  = datastr.substring(3);
+				if (field.mAlias == null)
+				{
 				cmd += "('" + field.mArea + "',"+ field.mIndex + ");" ;
+				}else
+				{				
+					cmd += "('" + field.mArea + "',"+ field.mIndex + ");" ;
+				}
 				mScript.execScript(cmd);
 			}
 		}else
@@ -553,10 +606,10 @@ public class GameonApp{
 
 	}
 
-	public void onFocusProbe(int x, int y)
+	public boolean onFocusProbe(int x, int y)
 	{
 		mLastClickTime = System.currentTimeMillis();
-		this.mouseDragged(x, y , true);
+		return this.mouseDragged(x, y , true);
 	}   
 
 	public void setSplash(String splash, long delay)
@@ -617,7 +670,12 @@ public class GameonApp{
 
 	public boolean hasData()
 	{
-		//System.out.println("to skip " + mResponsesQueue.size() + " " + mAnims.mCount);
+		if (mRenderThisFrame)
+		{
+			mRenderThisFrame = false;
+			return true;
+		}
+		//System.out.println("to skip " + mResponsesQueue.size() + " " + mAnims.getCount());
 		if (mDrawSPlash || mBox2dWrapper.isActive())
 		{
 			return true;
@@ -731,7 +789,7 @@ public class GameonApp{
 				mObjectsFact.create(resptype , respdata, respdata2 , respdata3);
 				break;
 			case 4110:
-				mObjectsFact.place(resptype , respdata);
+					mObjectsFact.place(resptype , respdata, respdata2);
 				break;
 			case 4120:
 				mObjectsFact.scale(resptype , respdata);
@@ -790,6 +848,9 @@ public class GameonApp{
 			case 6007:
 				mItems.addShapeFromData(resptype, respdata, respdata2 , respdata3);
 				break;					
+				case 6008:
+					mItems.createModelFromFile(gl, resptype, respdata);
+					break;															
 			case 7000:
 				connect(resptype, respdata);
 				break;            
@@ -817,6 +878,9 @@ public class GameonApp{
 			case 8003:
 				mWorld.domainHide(resptype);
 				break;    							
+				case 8004:
+					mWorld.domainPan(resptype,respdata, respdata2, respdata3);
+					break;    												
 			case 9000:
 				mBox2dWrapper.initWorld(resptype, respdata , respdata2);
 				break;
@@ -825,7 +889,7 @@ public class GameonApp{
 				break;
 
 			case 4300:
-				//mAnims.animObject(resptype,respdata,respdata2,respdata3);
+					mAnims.animObject(resptype,respdata,respdata2,respdata3,null);
 			default:
 				mDataGrid.onEvent2(gl, response);
 			}
@@ -949,6 +1013,43 @@ public class GameonApp{
 			String data = mOnTouchEndCallback + "(" + mWorld.gerRelativeX(x) + ","+ mWorld.gerRelativeY(y)+ ", " + delay+");";
 			mScript.execScript(data , 0);        	
 		}
+	}
+
+	public String convertStreamToString(InputStream is)
+            throws IOException {
+        if (is != null) {
+            Writer writer = new StringWriter();
+
+            char[] buffer = new char[1024];
+            try {
+                Reader reader = new BufferedReader(
+                        new InputStreamReader(is, "UTF-8"));
+                int n;
+                while ((n = reader.read(buffer)) != -1) {
+                    writer.write(buffer, 0, n);
+                }
+            } finally {
+                is.close();
+            }
+            return writer.toString();
+        } else {
+            return "";
+        }
+    }	
+    
+	public String getStringFromFile(String location) 
+	{
+		InputStream instream;
+ 
+		try {
+			instream = mContext.getAssets().open("res/"+location);
+			String objstr = convertStreamToString(instream);
+			return objstr;
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 

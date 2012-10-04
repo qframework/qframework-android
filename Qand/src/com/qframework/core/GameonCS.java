@@ -31,18 +31,29 @@ public class GameonCS {
 	 private int mViewport[] = { 0 ,0,0,0};
 	 private float mLookAt [] = new float[16];
 	 private float mProjection [] = new float[16];
-	 private float mCameraEye [] = new float[3];
-	 private float mCameraLookAt [] = new float[3];
+	 
+	 private float mCameraEye [];
+	 private float mCameraLookAt [];
 	 private boolean mHudInit = false;
 	 private boolean mSpaceInit = false;
 
-	 private float[] mBBox = new float[8];
-	 private float mUpZ[] = new float[3];
+	 private float mBBox[] = new float[8];
+	 private float mUpZ[];
 	 private float mScreenHeight = 0;
 	 private float mScreenWidth = 0;
-
-	 public GameonCS()
+	 private GameonApp mApp;
+	 private GameonModelRef mCameraData;
+	 private GameonModelRef mAnimDataStart;
+	 private GameonModelRef mAnimDataEnd;
+	 public GameonCS(GameonApp app)
 	 {
+		 mApp = app;
+		 mCameraData = new GameonModelRef(null, 0);
+		 
+		 mCameraEye = mCameraData.mAreaPosition;
+		 mCameraLookAt = mCameraData.mPosition;
+		 mUpZ = mCameraData.mScale;
+		 
 		 mCameraEye[0] = 0;
 		 mCameraEye[1] = 0;
 		 mCameraEye[2] = 5;
@@ -72,6 +83,10 @@ public class GameonCS {
     }
     
 
+     void set()
+	{
+    	
+	}	
 	void init(float canvasw, float canvash, int canvasz ) {
 		
 		mCanvasW = (float)canvasw;
@@ -215,8 +230,13 @@ public class GameonCS {
 	    
 	}
 
-	void applyCamera(GL10 gl)
+	void applyCamera(GL10 gl , long delta)
 	{
+	    if (mCameraData.animating())
+	    {
+	    	mCameraData.animate(delta);
+	    	saveLookAt(mCameraEye ,  mCameraLookAt , mUpZ);
+        }
 	    if (!mSpaceInit)
 	    {
 	        mSpaceInit = true;
@@ -286,4 +306,31 @@ public class GameonCS {
 		return mCameraEye;
 	}
 
+	public void moveCamera(float[] lookat, float[] eye, long animdelay) 
+	{
+		if (mAnimDataStart == null)
+		{
+			mAnimDataStart = new GameonModelRef(null, 0);
+		}
+		if (mAnimDataEnd == null)
+		{
+			mAnimDataEnd = new GameonModelRef(null, 0);
+		}
+		
+		mAnimDataStart.copy(mCameraData);
+		mAnimDataEnd.copy(mCameraData);
+		mAnimDataEnd.setAreaPosition(eye);
+		mAnimDataEnd.setPosition(lookat);
+		
+		mApp.anims().createAnim( mAnimDataStart, mAnimDataEnd , mCameraData , (int)animdelay, 2 , null , 1, false, false);
+	}
+
+	public float[] lookat() {
+		return mCameraLookAt;
+	}
+
+	public float[] up() {
+		return mUpZ;
+	}
+	
 }

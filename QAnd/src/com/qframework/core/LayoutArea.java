@@ -138,6 +138,7 @@ public enum Border {
     protected GameonModel mModel;
     protected GameonModel	mModelBack;
     protected Border mBorder = Border.NONE;
+	protected float mBorderWidth = 0.03f;
     protected boolean mDisabledInput = false;
     protected boolean mPageVisible = false;
 	protected boolean mHasScrollH = false;
@@ -541,6 +542,12 @@ public enum Border {
             	f.mItem.mModelRef.set();
             }
             
+        if (f.mText != null)
+        {
+        	f.mText.ref().setAddScale(scale2);
+        	f.mText.ref().set();
+        }
+        
         }
     
     
@@ -839,9 +846,11 @@ public enum Border {
 						if (mType == Type.LAYOUT)
 						{
 							mModelBack = mApp.items().createFromType(GameonModelData.Type.BACKIMAGE , mColorBackground , text, null);
+							mModelBack.mParentArea = this;
 						}else
 						{
 							mModelBack = mApp.items().createFromType(GameonModelData.Type.BACKGROUND , mColorBackground , text, null);
+							mModelBack.mParentArea = this;
 						}
 						ref.mOwner = n;
 						ref.mTransformOwner = true;
@@ -853,9 +862,11 @@ public enum Border {
 						if (mType == Type.LAYOUT)
 						{
 							mModelBack = mApp.items().createFromType(GameonModelData.Type.BACKIMAGE , mColorBackground , mColorBackground2, null);
+							mModelBack.mParentArea = this;
 						}else
 						{						
 							mModelBack = mApp.items().createFromType(GameonModelData.Type.BACKGROUND , mColorBackground , mColorBackground2, null);
+							mModelBack.mParentArea = this;
 						}
 					}
 				}else
@@ -863,9 +874,11 @@ public enum Border {
 					if (mType == Type.LAYOUT)
 					{					
 						mModelBack = mApp.items().createFromType(GameonModelData.Type.BACKIMAGE , mColorBackground , mColorBackground2, null);
+						mModelBack.mParentArea = this;
 					}else
 					{
 						mModelBack = mApp.items().createFromType(GameonModelData.Type.BACKGROUND , mColorBackground , mColorBackground2, null);
+						mModelBack.mParentArea = this;
 					}
 				}
 				//mModelBack.mLoc = mDisplay;
@@ -878,7 +891,8 @@ public enum Border {
 	            
 	            if (mBorder == Border.THINRECT)
 	            {
-	            	mModelBack.createFrame(-0.5f,-0.5f,0.00f,0.5f, 0.5f,0.00f, 0.03f/mBounds[0], 0.03f/mBounds[1], this.mColorForeground);
+	            	mModelBack.createFrame(-0.5f,-0.5f,0.00f,0.5f, 0.5f,0.00f, mBorderWidth/mBounds[0], mBorderWidth/mBounds[1], this.mColorForeground);
+	            	mModelBack.mParentArea = this;
 	            }
 	            
 	            
@@ -921,7 +935,7 @@ public enum Border {
 			createCustomModel();
 			return;
 		}
-		mModel = new GameonModel("area"+ this.mID , mApp);
+		mModel = new GameonModel("area"+ this.mID , mApp, this);
 		GameonModel model = mModel;
 		//Log.d("model" , " cordstart ------");
 		for (int a=0; a< mItemFields.size(); a++ ) {
@@ -1126,7 +1140,12 @@ public enum Border {
         	item = mItemFields.get(a).mItem;
         	if (item != null && item.mModelRef != null)
         	{
-        	mApp.anims().animRef(movetype, item.mModelRef , item.mModelRef, delay);
+        		GameonModelRef startAnim = new GameonModelRef(null, mDisplay);
+                
+                startAnim.copy( item.mModelRef);
+                startAnim.copyMat( item.mModelRef);
+        		
+        		mApp.anims().animRef(movetype, startAnim , item.mModelRef, delay);
         }
 	}
 	}
@@ -1153,7 +1172,14 @@ public enum Border {
         	int a= Integer.parseInt(tokind.nextToken());
         	item = mItemFields.get(a).mItem;
                 if(item != null)
-        	     mApp.anims().animRef(movetype, item.mModelRef , item.mModelRef, delay);
+            {
+        		GameonModelRef startAnim = new GameonModelRef(null, mDisplay);
+                
+                startAnim.copy( item.mModelRef);
+                startAnim.copyMat( item.mModelRef);
+        		
+        		mApp.anims().animRef(movetype, startAnim , item.mModelRef, delay);
+            }
 
         }
 	}
@@ -1171,9 +1197,15 @@ public enum Border {
 
 	public void updateBorder(String border) {
 		// 
-		if (border.equals("thinrect"))
+		StringTokenizer tok = new StringTokenizer(border,".");
+		String type = tok.nextToken();
+		if (type.equals("thinrect"))
 		{
 			mBorder = Border.THINRECT;
+		}
+		if (tok.hasMoreTokens())
+		{
+			mBorderWidth = Float.parseFloat(tok.nextToken()) * 0.03f;
 		}
 	}
 
@@ -1306,6 +1338,12 @@ public enum Border {
 	}
 	public void setScrollers(String data)
 	{
+		if (data.equals("none"))
+		{
+			this.mHasScrollH = false;
+			this.mHasScrollV = false;
+			return;
+		}
 		int num = ServerkoParse.parseFloatArray(mScrollers, data);
 		if (num > 0)
 		{
@@ -1330,6 +1368,11 @@ public enum Border {
 	}
 	public void onDragg(float dx, float dy, float dz)
 	{
+		if (!this.mHasScrollH && !this.mHasScrollV)
+		{
+			return;
+		}
+		
 		//System.out.println( "dragg " + dx + " " + dy + " " + dz);
 		if (mHasScrollH || mHasScrollV)
 		{
@@ -1378,6 +1421,57 @@ public enum Border {
 	public void assignPsyData(BodyData bodydata) {
 		// 
 		mPsyData =  bodydata;
+	}
+
+	public boolean acceptTouch(GameonModel model, boolean click) {
+    	if (this.mActiveItems == 0)
+    	{
+    		return false;
+    	}
+    	if (click)
+    	{
+    		if ( this.mOnclick == null || this.mOnclick.length() == 0 )
+    			return false;
+    	}else
+    	{
+    		if (!this.mHasScrollV && !this.mHasScrollH)
+    		{
+    			if ( (this.mOnFocusGain== null || this.mOnFocusGain.length() == 0) &&  
+    			(this.mOnFocusLost== null || this.mOnFocusLost.length() == 0))
+    				return false;
+    		}
+    	}			
+    	
+		if (this.mDisabledInput || !this.hasTouchEvent() )
+			return false;
+		if (this.mPageVisible == false || this.mState != LayoutArea.State.VISIBLE)
+		{
+			return false;
+		}
+	    if ( this.mParent.mPagePopup.length() > 0 &&  !this.mPageId.equals(this.mParent.mPagePopup))
+	    {
+	        return false;
+	    }
+
+		return true;
+	}
+
+	public int indexOfRef(GameonModelRef ref) 
+	{
+		if (mModel != null && ref == mModel.ref(0))
+			return -1;
+		if (mModelBack != null && ref == mModelBack.ref(0))
+			return -1;		
+		
+		for (int a=0; a < mItemFields.size(); a++)
+		{
+			LayoutField f = mItemFields.get(a);
+			if (f != null && f.mRef == ref)
+			{
+				return a;
+			}
+		}
+		return -1;
 	}
 }
 

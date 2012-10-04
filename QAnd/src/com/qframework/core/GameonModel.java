@@ -19,6 +19,7 @@
 
 package com.qframework.core;
 
+import java.util.StringTokenizer;
 import java.util.Vector;
 
 import javax.microedition.khronos.opengles.GL10;
@@ -36,6 +37,10 @@ public class GameonModel extends GLModel{
 	protected boolean mIsModel = false;
 	private GameonWorld mWorld;
 	private boolean mActive = true;
+	private Vector<Integer> mIterQueue;
+	protected	LayoutArea	mParentArea;
+	protected	String		mOnClick;
+	private TextureFactory.MaterialData mCurrentMaterial;
 
 	private static float mStaticBoundsPlane[] =  { 
 		-0.5f,-0.5f,0.0f,1.0f,
@@ -49,10 +54,19 @@ public class GameonModel extends GLModel{
 		0.0f,0.0f,0.0f,1.0f,
 		0.0f,0.0f,0.0f,1.0f };	
 	
-	public GameonModel(String name, GameonApp app) {
+	static public class RefId
+	{
+		String name;
+		String alias;
+		int id;
+	}
+
+	
+	public GameonModel(String name, GameonApp app, LayoutArea parentarea) {
 		super(name , app);
 		mApp = app;
 		mWorld = mApp.world();
+		mParentArea = parentarea;
 	}
     public void createModel2(GameonModelData.Type type, float left, float bottom, float back, 
     		float right, float top, float front,
@@ -278,27 +292,43 @@ public class GameonModel extends GLModel{
     }    
     public void createPlane(float left, float bottom, float back, float right, float top, float front, GLColor color, float[] grid)  
     {
-    	GLShape shape = new GLShape(this);
+    	
     	
     	float divx = 1; 
     	float divy = 1;
-    	float divz = 1;
+    	
+    	float w = right-left;
+    	float h = top-bottom;
     	
     	if (grid != null)
     	{
-    		divx = 1 / grid[0];
-    		divy = 1 / grid[1];
-    		divz = 1 / grid[2];
+    		divx = w / grid[0];
+    		divy = h / grid[1];
     	}
     	
-    	for (float x = -0.0f; x < 1.0f; x+= divx)
+    	for (float x = left; x < right; x+= divx)
     	{
-        	for (float y = -0.0f; y < 1.0f; y+= divy)
+        	for (float y = bottom; y < top; y+= divy)
 			{    		
+        		GLShape shape = new GLShape(this);
+        		/*
 	    		float left2 = left * divx + x;
 	    		float right2 = right * divx + x;
 	    		float top2 = top * divy + y;
 	    		float bottom2 = bottom * divy + y;
+	    		*/
+	    		float left2 = x;
+	    		float right2 = divx + x;
+				if (right2 > right)
+				{
+					right2 = right;
+				}
+				float top2 = divy + y;
+				if (top2 > top)
+				{
+					top2 = top;
+				}				    		
+	    		float bottom2 = y;
 	    		
 	           	GLVertex leftBottomFront = shape.addVertex(left2, bottom2, front , 0.01f , 0.99f, color);
 	            GLVertex rightBottomFront = shape.addVertex(right2, bottom2, front , 0.99f , 0.99f, color);
@@ -716,10 +746,10 @@ public class GameonModel extends GLModel{
                                 
         if (away)
         {
-        	mApp.anims().createAnim( to , from , mRefs.get(no) , delay , 2 , null , 1, true);
+        	mApp.anims().createAnim( to , from , mRefs.get(no) , delay , 2 , null , 1, true, true);
         }else
         {
-        	mApp.anims().createAnim( from , to , mRefs.get(no) , delay , 2 , null , 1 , false);
+        	mApp.anims().createAnim( from , to , mRefs.get(no) , delay , 2 , null , 1 , false, true);
         }
             
     }
@@ -855,6 +885,61 @@ public class GameonModel extends GLModel{
     	}
 
 		addShape(shape);
+    }
+
+    public void createModelFromData2(float[][] inputdata, float mat[] , float uvb[], int[] colors)
+    {
+    	float umid = uvb[0];//(uvb[2] + uvb[0]) /2;
+    	float vmid = uvb[1];//(uvb[3] + uvb[1]) /2;
+    	float ratiou = uvb[2] - uvb[0];
+    	float ratiov = uvb[3] - uvb[1];
+    	
+    	float outvec[] = { 0 ,0,0,1};
+    	float tu,tv;
+    	
+    	// model info - vertex offset?
+    	int len = inputdata.length;
+    	//  v   c   uv
+    	// (3 + 4 + 2) * 3
+    	int off;
+		GLShape shape = new GLShape(this);
+    	
+		float temp[] = new float[4];
+    	for (int a=0; a< len; a+= 9 ) 
+    	{
+    		temp[0] = inputdata[a+0][0];
+    		temp[1] = inputdata[a+0][1];
+    		temp[2] = inputdata[a+0][2];
+    		
+    		GMath.matrixVecMultiply2(mat, temp, 0 , outvec ,0);
+        	tu = inputdata[a+2][0] * ratiou + umid;
+        	tv  = inputdata[a+2][1] * ratiou + umid;
+    		GLVertex v1 = shape.addVertexColorInt(outvec[0], outvec[1], outvec[2] , tu, tv, colors[0]);
+
+    		temp[0] = inputdata[a+3][0];
+    		temp[1] = inputdata[a+3][1];
+    		temp[2] = inputdata[a+3][2];
+    		
+    		GMath.matrixVecMultiply2(mat, temp, 0 , outvec ,0);
+        	tu = inputdata[a+5][0] * ratiou + umid;
+        	tv  = inputdata[a+5][1] * ratiou + umid;
+    		GLVertex v2 = shape.addVertexColorInt(outvec[0], outvec[1], outvec[2] , tu, tv, colors[0]);
+
+    		temp[0] = inputdata[a+6][0];
+    		temp[1] = inputdata[a+6][1];
+    		temp[2] = inputdata[a+6][2];
+    		
+    		GMath.matrixVecMultiply2(mat, temp, 0 , outvec ,0);
+        	tu = inputdata[a+8][0] * ratiou + umid;
+        	tv  = inputdata[a+8][1] * ratiou + umid;
+    		GLVertex v3 = shape.addVertexColorInt(outvec[0], outvec[1], outvec[2] , tu, tv, colors[0]);
+
+    		
+    		shape.addFace( new GLFace(v1,v2,v3));
+
+    	}
+
+		addShape(shape);
 		mTextureID = mApp.textures().get(TextureFactory.Type.DEFAULT);
     }
 
@@ -894,7 +979,7 @@ public class GameonModel extends GLModel{
 		
 	}
 	public GameonModel copyOfModel() {
-		GameonModel model = new GameonModel(mName, mApp);
+		GameonModel model = new GameonModel(mName, mApp, mParentArea);
 		model.mEnabled = this.mEnabled;
 		model.mForceHalfTexturing = false;
 		model.mForcedOwner = 0;
@@ -918,6 +1003,11 @@ public class GameonModel extends GLModel{
     		{
                 GameonModelRef ref = new GameonModelRef(this, loc);
                 mRefs.add(ref);
+                if (mRefs.size() > 1)
+                {
+                	ref.copyData(mRefs.get(0));
+                	ref.set();
+                }
     		}
     		return mRefs.elementAt(count);
         }
@@ -941,6 +1031,210 @@ public class GameonModel extends GLModel{
 			{
 				this.remVisibleRef(ref);
 			}
+		}
+	}
+	public void setupIter(int num) 
+	{
+
+
+		mIterQueue = new Vector<Integer>();		
+		while (mRefs.size() < num)
+		{
+			GameonModelRef ref = new GameonModelRef(this, 0);
+			mRefs.add(ref);
+            if (mRefs.size() > 1)
+            {
+            	ref.copyData(mRefs.get(0));
+            	ref.set();
+            }			
+		}
+		for (int a=0; a< num; a++)
+		{
+			mIterQueue.add(a);
+		}
+		
+	}
+	public GameonModelRef getRefById(RefId refid, int loc) {
+		if (refid.id >= 0)
+		{
+			return this.getRef(refid.id, loc);
+		}
+		
+		// go through references and find id with name
+		for (int a=0; a< mIterQueue.size(); a++)
+		{
+			int index = mIterQueue.get(a);
+			GameonModelRef ref = mRefs.get(index);
+			if (refid.alias.equals(ref.mRefAlias))
+			{
+				// put it on the end
+				mIterQueue.remove(a);
+				mIterQueue.add(new Integer(index));
+				refid.id = index;
+				return ref;
+			}
+		}
+		
+		// we didn't find alias get first ref
+		int index = mIterQueue.get(0);
+		GameonModelRef ref = mRefs.get(index);
+		ref.mRefAlias = refid.alias;
+		// now remove it - and put to back
+		mIterQueue.remove(0);
+		mIterQueue.add(new Integer(index));
+		refid.id = index;
+		return ref;
+	}
+	public AreaIndexPair onTouch(float[] eye, float[] ray, int renderId, boolean click) {
+		float loc[] = new float[3];
+		
+		if (mParentArea != null)
+		{
+			if (!mParentArea.acceptTouch(this, click))
+			{
+				return null;
+			}
+		}else
+		{
+			if (this.mOnClick == null)
+				return null;
+		}
+		
+		int count = 0;
+		for (GameonModelRef ref : this.mRefs)
+		{
+			if (ref.mVisible && ref.loc() == renderId)
+			{
+				float dist = ref.intersectsRay(eye , ray, loc);
+				if (dist >=0 && dist < 1e06f)
+				{
+					dist = ref.distToCenter(loc);
+					AreaIndexPair pair = new AreaIndexPair();
+					pair.mLoc[0] = loc[0];
+					pair.mLoc[1] = loc[1];
+					pair.mLoc[2] = loc[2];
+					pair.mDist = dist;
+					if (mParentArea != null)
+					{
+						pair.mArea = mParentArea.mID;
+						pair.mOnclick = mParentArea.mOnclick;
+						pair.mOnFocusLost = mParentArea.mOnFocusLost;
+						pair.mOnFocusGain = mParentArea.mOnFocusGain;
+						pair.mIndex = mParentArea.indexOfRef(ref);
+					}
+					else
+					{
+						pair.mArea = mName;
+						pair.mOnclick = mOnClick;
+						pair.mAlias = ref.mRefAlias;
+						pair.mOnFocusLost = null;
+						pair.mOnFocusGain =null;
+						pair.mIndex = count;
+						
+						
+					}
+								
+					return pair;							
+
+				}
+			}
+			count++;
+		}
+		
+		return null;
+	}
+	public void addShapeFromString(Vector<float[]> vertices, Vector<float[]> textvertices, String data)
+	{
+		GLShape shape = new GLShape(this);
+		StringTokenizer tok = new StringTokenizer(data," ");
+		GLVertex vert[] = new GLVertex[4];
+		int count = 0;
+		GLColor c = mApp.colors().white;
+		if (mCurrentMaterial != null && mCurrentMaterial.diffuse != null)
+		{
+			c = mCurrentMaterial.diffuse;
+		}else
+		if (mCurrentMaterial != null && mCurrentMaterial.ambient != null)
+		{
+			c = mCurrentMaterial.ambient;
+		}
+		else
+		{
+			c = mApp.colors().white;
+		}
+		while (tok.hasMoreTokens())
+		{
+			String value = tok.nextToken();
+			if (value.contains("/"))
+			{
+				StringTokenizer tok2 = new StringTokenizer(value, "/");
+				int index = Integer.parseInt(tok2.nextToken())-1;
+				int index2 = Integer.parseInt(tok2.nextToken())-1;
+				float[] vdata = vertices.elementAt(index);
+				float[] tdata = textvertices.elementAt(index2);
+				GLVertex v = null;
+				if (mCurrentMaterial.t != null)
+				{
+					float t0 = 0.0f;
+					float t1 = 0.0f;
+					if (tdata[0] < 0)
+					{
+						tdata[0] = 0;
+					}
+					if (tdata[0] > 1)
+					{
+						tdata[0] = 1;
+					}
+					if (tdata[1] < 0)
+					{
+						tdata[1] = 0;
+					}
+					if (tdata[1] > 1)
+					{
+						tdata[1] = 1;
+					}									
+					t0 = tdata[0] / mCurrentMaterial.t[2];
+					t1 = (1.0f-tdata[1]) / mCurrentMaterial.t[3];
+					
+					t0 += mCurrentMaterial.t[0];
+					t1 += mCurrentMaterial.t[1];
+					v = shape.addVertex(vdata[0], vdata[2], vdata[1], t0, t1, c);
+				}else
+				{
+					v = shape.addVertex(vdata[0], vdata[2], vdata[1], tdata[0], 1.0f-tdata[1], c);	
+				}
+				 
+				vert[count] = v;
+			}else
+			{
+				int index = Integer.parseInt(value)-1;
+				float[] vdata = vertices.elementAt(index);
+				GLVertex v = shape.addVertex(vdata[0], vdata[2], vdata[1], 0,0, c);
+				vert[count] = v;
+			}
+			count ++;
+		}
+		if (count == 3)
+		{
+			GLFace face = new GLFace(vert[0], vert[1], vert[2]);
+			shape.addFace(face);
+		}else
+		if (count == 4)
+		{
+			GLFace face = new GLFace(vert[0], vert[1], vert[2]);
+			shape.addFace(face);
+			
+			GLFace face2 = new GLFace(vert[0], vert[2], vert[3]);
+			shape.addFace(face2);
+		}
+		addShape(shape);
+	}
+	public void useMaterial(String substring) 
+	{
+		mCurrentMaterial = mApp.textures().getMaterial(substring);
+		if (mTextureID == 1)
+		{
+			mTextureID = mCurrentMaterial.diffuseMapId;
 		}
 	}
     
